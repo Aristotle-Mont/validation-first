@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BoringBuilds — Validate Before You Build</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream: #F5F0E8;
+    --dark: #1A1714;
+    --olive: #4A4736;
+    --accent: #C8873A;
+    --accent2: #7B9E6B;
+    --muted: #8C8472;
+    --card-bg: #FEFCF7;
+    --border: #DDD8CC;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--cream);
+    color: var(--dark);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1.5px solid var(--border);
+    padding: 0 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    background: var(--cream);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+    color: var(--dark);
+  }
+  .logo span { color: var(--accent); font-style: italic; }
+  .header-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    background: var(--dark);
+    color: var(--cream);
+    padding: 4px 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 80px 48px 60px;
+    max-width: 900px;
+  }
+  .hero-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-label::before { content: '●'; font-size: 0.5rem; }
+  .hero h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(2.8rem, 5vw, 4.2rem);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 24px;
+    color: var(--dark);
+  }
+  .hero h1 em { font-style: italic; color: var(--accent); }
+  .hero p {
+    font-size: 1.05rem;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 580px;
+    font-weight: 400;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    margin: 0 48px;
+    border: 1.5px solid var(--border);
+    background: var(--card-bg);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-bottom: 60px;
+  }
+  .stat {
+    padding: 20px 28px;
+    border-right: 1.5px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-family: 'Instrument Serif', serif;
+    font-size: 2rem;
+    color: var(--dark);
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+
+  /* FILTER TABS */
+  .section-header {
+    padding: 0 48px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .section-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.6rem;
+    letter-spacing: -0.5px;
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 7px 14px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .filter-btn:hover, .filter-btn.active {
+    background: var(--dark);
+    color: var(--cream);
+    border-color: var(--dark);
+  }
+
+  /* IDEA GRID */
+  .ideas-grid {
+    padding: 0 48px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5px;
+    background: var(--border);
+    border: 1.5px solid var(--border);
+    margin: 0 48px;
+  }
+
+  .idea-card {
+    background: var(--card-bg);
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: background 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .idea-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.25s ease;
+  }
+  .idea-card:hover { background: #FFFDF8; }
+  .idea-card:hover::before { transform: scaleX(1); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .card-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .card-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .tag.industry { background: #EEF4EB; border-color: #C8DCC0; color: #4A7A3A; }
+  .tag.hot { background: #FEF3E8; border-color: #F0C89A; color: #A05A1A; }
+
+  .card-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    letter-spacing: -0.3px;
+    color: var(--dark);
+  }
+  .card-desc {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  /* PROBLEM / OPPORTUNITY */
+  .card-detail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .detail-box {
+    background: var(--cream);
+    padding: 12px;
+    border: 1px solid var(--border);
+  }
+  .detail-box-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .detail-box-val {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--dark);
+  }
+
+  /* PLEDGE AREA */
+  .pledge-area {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+  .pledge-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .pledge-amount {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.4rem;
+    color: var(--dark);
+  }
+  .pledge-goal {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+  .progress-fill.green { background: var(--accent2); }
+
+  .pledge-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--dark);
+    color: var(--cream);
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .pledge-btn:hover { background: var(--accent); }
+  .pledge-btn.pledged { background: var(--accent2); }
+  .pledge-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,23,20,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    max-width: 480px;
+    width: 100%;
+    padding: 40px;
+    position: relative;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none; border: none;
+    font-size: 1.2rem; cursor: pointer;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .modal-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .modal-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .amount-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .amount-opt {
+    padding: 12px 8px;
+    border: 1.5px solid var(--border);
+    background: none;
+    cursor: pointer;
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.1rem;
+    color: var(--dark);
+    text-align: center;
+    transition: all 0.12s;
+  }
+  .amount-opt:hover, .amount-opt.selected {
+    border-color: var(--accent);
+    background: #FEF3E8;
+    color: var(--accent);
+  }
+  .modal-confirm {
+    width: 100%;
+    padding: 14px;
+    background: var(--dark);
+    color: var(--cream);
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: background 0.15s;
+  }
+  .modal-confirm:hover { background: var(--accent); }
+  .modal-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  /* SUCCESS STATE */
+  .success-banner {
+    display: none;
+    background: #EEF4EB;
+    border: 1.5px solid #C8DCC0;
+    color: #3A6A2A;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  /* FOOTER */
+  footer {
+    margin-top: 80px;
+    border-top: 1.5px solid var(--border);
+    padding: 32px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    header, .hero, .stats-bar, .section-header, .ideas-grid { padding-left: 20px; padding-right: 20px; margin-left: 0; margin-right: 0; }
+    .stats-bar { grid-template-columns: 1fr; }
+    .stat { border-right: none; border-bottom: 1.5px solid var(--border); }
+    .ideas-grid { grid-template-columns: 1fr; margin: 0; }
+    .card-detail { grid-template-columns: 1fr; }
+    .amount-options { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Boring<span>Builds</span></div>
+  <div class="header-tag">Validate Before You Build</div>
+</header>
+
+<div class="hero">
+  <div class="hero-label">For indie builders & solo founders</div>
+  <h1>Boring companies.<br><em>Serious money.</em></h1>
+  <p>Software ideas in overlooked, unglamorous industries where AI can do something genuinely useful. Pledge interest before a line of code is written — so builders know what's worth their time.</p>
+</div>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-num" id="total-ideas">8</div>
+    <div class="stat-label">Ideas Listed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num" id="total-pledges">$0</div>
+    <div class="stat-label">Total Pledged</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num" id="total-backers">0</div>
+    <div class="stat-label">Interested Builders</div>
+  </div>
+</div>
+
+<div class="section-header">
+  <div class="section-title">Ideas to Validate</div>
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="operations">Operations</button>
+    <button class="filter-btn" data-filter="trades">Trades</button>
+    <button class="filter-btn" data-filter="logistics">Logistics</button>
+    <button class="filter-btn" data-filter="compliance">Compliance</button>
+  </div>
+</div>
+
+<div class="ideas-grid" id="ideas-grid">
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" id="modal-close">✕</button>
+    <div class="modal-title" id="modal-idea-title"></div>
+    <div class="modal-sub">Your pledge signals real interest — no charge yet. If this gets built, you'll be first to know and get early access pricing.</div>
+    <div class="amount-options">
+      <button class="amount-opt selected" data-val="5">$5</button>
+      <button class="amount-opt" data-val="10">$10</button>
+      <button class="amount-opt" data-val="25">$25</button>
+      <button class="amount-opt" data-val="50">$50</button>
+    </div>
+    <button class="modal-confirm" id="modal-confirm">Pledge My Interest</button>
+    <div class="modal-note">This is a validation pledge — not a real charge.<br>It tells the founder this idea is worth building.</div>
+    <div class="success-banner" id="modal-success">✓ Pledge recorded! You'll hear from us if this gets built.</div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 BoringBuilds — Ideas worth building</p>
+  <p>Pledges are simulated for validation purposes only</p>
+</footer>
+
+<script>
+const ideas = [
+  {
+    id: 1,
+    icon: "🏗️",
+    title: "Subcontractor Invoice Reconciler",
+    desc: "General contractors deal with dozens of subs sending invoices in every format imaginable. AI reads, parses, and matches invoices against scope-of-work docs and flags discrepancies automatically.",
+    industry: "Construction",
+    category: "operations",
+    tam: "$4.2B",
+    model: "$149/mo per GC",
+    pledged: 340,
+    goal: 500,
+    backers: 7,
+    hot: true
+  },
+  {
+    id: 2,
+    icon: "🚛",
+    title: "Freight Broker Back-Office AI",
+    desc: "Small freight brokers spend hours on check calls, rate confirmations, and POD collection. Automate the paperwork trail and status updates so brokers can focus on moving more loads.",
+    industry: "Logistics",
+    category: "logistics",
+    tam: "$8.1B",
+    model: "$299/mo per broker",
+    pledged: 210,
+    goal: 500,
+    backers: 5,
+    hot: false
+  },
+  {
+    id: 3,
+    icon: "🔧",
+    title: "HVAC Dispatch & Quote Assistant",
+    desc: "HVAC companies lose jobs because quoting is slow and dispatching is chaos. AI takes a job description, pulls parts pricing, and drafts a professional quote in under 2 minutes.",
+    industry: "Trades",
+    category: "trades",
+    tam: "$2.8B",
+    model: "$79/mo per truck",
+    pledged: 480,
+    goal: 500,
+    backers: 12,
+    hot: true
+  },
+  {
+    id: 4,
+    icon: "📋",
+    title: "OSHA Compliance Copilot",
+    desc: "Small manufacturers and contractors have no dedicated safety officer. An AI that reads your operations, flags OSHA violations before inspections, and auto-generates required documentation.",
+    industry: "Compliance",
+    category: "compliance",
+    tam: "$5.7B",
+    model: "$199/mo",
+    pledged: 90,
+    goal: 500,
+    backers: 3,
+    hot: false
+  },
+  {
+    id: 5,
+    icon: "🏠",
+    title: "Property Manager Maintenance Triage",
+    desc: "Tenants submit maintenance requests in every format — text, phone, email. AI classifies urgency, routes to the right vendor, and drafts the response — without a property manager lifting a finger.",
+    industry: "Real Estate",
+    category: "operations",
+    tam: "$3.4B",
+    model: "$49/mo per 50 units",
+    pledged: 265,
+    goal: 500,
+    backers: 8,
+    hot: false
+  },
+  {
+    id: 6,
+    icon: "⚖️",
+    title: "Municipal Permit Application Writer",
+    desc: "Contractors and architects waste weeks navigating permit requirements and drafting applications. AI reads local ordinances and auto-fills permit applications with the right language and attachments.",
+    industry: "Government / Legal",
+    category: "compliance",
+    tam: "$1.9B",
+    model: "$99/mo or per-permit fee",
+    pledged: 135,
+    goal: 500,
+    backers: 4,
+    hot: false
+  },
+  {
+    id: 7,
+    icon: "🚚",
+    title: "Route Waste Optimizer for Haulers",
+    desc: "Trash hauling and septic companies run routes the same way they did in 1990. AI re-optimizes weekly routes based on traffic, fill-levels, and new customers — cutting fuel costs 15-25%.",
+    industry: "Waste Management",
+    category: "logistics",
+    tam: "$6.3B",
+    model: "$249/mo per fleet",
+    pledged: 195,
+    goal: 500,
+    backers: 6,
+    hot: true
+  },
+  {
+    id: 8,
+    icon: "🧾",
+    title: "Food Truck Licensing Tracker",
+    desc: "Food truck operators juggle 5-15 different city permits, health inspections, and commissary agreements — all expiring at different times. AI tracks every deadline, auto-prepares renewals, and sends alerts.",
+    industry: "Food & Bev",
+    category: "compliance",
+    tam: "$890M",
+    model: "$29/mo",
+    pledged: 60,
+    goal: 500,
+    backers: 2,
+    hot: false
+  }
+];
+
+let state = {
+  pledges: {},   // id -> {amount, pledged}
+  filter: 'all'
+};
+
+// Load from memory (session only)
+function getTotalPledged() {
+  return Object.values(state.pledges).reduce((sum, p) => sum + (p.amount || 0), 0);
+}
+function getTotalBackers() {
+  return Object.values(state.pledges).filter(p => p.pledged).length;
+}
+
+function updateStats() {
+  const total = getTotalPledged();
+  document.getElementById('total-pledges').textContent = '$' + total.toLocaleString();
+  document.getElementById('total-backers').textContent = getTotalBackers();
+}
+
+function getIdeaPledged(id) {
+  const base = ideas.find(i => i.id === id);
+  const extra = state.pledges[id]?.pledged ? (state.pledges[id].amount || 0) : 0;
+  return base.pledged + extra;
+}
+
+function renderCards() {
+  const grid = document.getElementById('ideas-grid');
+  const filtered = state.filter === 'all' ? ideas : ideas.filter(i => i.category === state.filter);
+  grid.innerHTML = '';
+
+  filtered.forEach(idea => {
+    const pledged = getIdeaPledged(idea.id);
+    const pct = Math.min(100, Math.round((pledged / idea.goal) * 100));
+    const userPledged = state.pledges[idea.id]?.pledged;
+    const backers = idea.backers + (userPledged ? 1 : 0);
+
+    const card = document.createElement('div');
+    card.className = 'idea-card';
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-icon">${idea.icon}</div>
+        <div class="card-tags">
+          <span class="tag industry">${idea.industry}</span>
+          ${idea.hot ? '<span class="tag hot">🔥 Hot</span>' : ''}
+        </div>
+      </div>
+      <div class="card-title">${idea.title}</div>
+      <div class="card-desc">${idea.desc}</div>
+      <div class="card-detail">
+        <div class="detail-box">
+          <div class="detail-box-label">Market Size</div>
+          <div class="detail-box-val">${idea.tam}</div>
+        </div>
+        <div class="detail-box">
+          <div class="detail-box-label">Target Price</div>
+          <div class="detail-box-val">${idea.model}</div>
+        </div>
+      </div>
+      <div class="pledge-area">
+        <div class="pledge-progress-row">
+          <div class="pledge-amount">$${pledged.toLocaleString()} <span style="font-size:0.85rem;color:var(--muted);font-family:'DM Mono',monospace;">pledged</span></div>
+          <div class="pledge-goal">Goal: $${idea.goal}</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill ${pct >= 100 ? 'green' : ''}" style="width:${pct}%"></div></div>
+        <button class="pledge-btn ${userPledged ? 'pledged' : ''}" data-id="${idea.id}">
+          ${userPledged ? '✓ You Pledged — Thank You' : '→ Pledge Interest'}
+        </button>
+        <div class="pledge-count">${backers} ${backers === 1 ? 'person' : 'people'} interested · ${pct}% to goal</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Attach pledge btn events
+  document.querySelectorAll('.pledge-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      if (state.pledges[id]?.pledged) return;
+      openModal(id);
+    });
+  });
+}
+
+// MODAL
+let activeId = null;
+let selectedAmount = 5;
+
+function openModal(id) {
+  activeId = id;
+  selectedAmount = 5;
+  const idea = ideas.find(i => i.id === id);
+  document.getElementById('modal-idea-title').textContent = idea.title;
+  document.getElementById('modal-success').style.display = 'none';
+  document.getElementById('modal-confirm').style.display = 'block';
+  document.querySelectorAll('.amount-opt').forEach(o => {
+    o.classList.toggle('selected', parseInt(o.dataset.val) === 5);
+  });
+  document.getElementById('modal').classList.add('open');
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('open');
+});
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+});
+
+document.querySelectorAll('.amount-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedAmount = parseInt(btn.dataset.val);
+    document.querySelectorAll('.amount-opt').forEach(o => o.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+
+document.getElementById('modal-confirm').addEventListener('click', () => {
+  if (!activeId) return;
+  state.pledges[activeId] = { pledged: true, amount: selectedAmount };
+  document.getElementById('modal-success').style.display = 'block';
+  document.getElementById('modal-confirm').style.display = 'none';
+  updateStats();
+  renderCards();
+  setTimeout(() => {
+    document.getElementById('modal').classList.remove('open');
+  }, 2200);
+});
+
+// FILTERS
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.filter = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderCards();
+  });
+});
+
+// INIT
+renderCards();
+updateStats();
+</script>
+</body>
+</html>
